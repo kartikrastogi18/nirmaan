@@ -1,0 +1,37 @@
+# Nirmaan Personal Edition — free-host friendly web service.
+# Before deployment set DATABASE_URL and the S3_* variables in Render's
+# Environment page.  Neon/Supabase PostgreSQL + Cloudflare R2 are suitable
+# examples; any compatible providers work.
+services:
+  - type: web
+    name: nirmaan-personal
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python init_db.py && gunicorn --bind 0.0.0.0:$PORT --workers 2 wsgi:app
+    healthCheckPath: /api/health
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: RATELIMIT_STORAGE_URI
+        value: memory://
