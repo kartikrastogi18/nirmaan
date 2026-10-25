@@ -40,8 +40,9 @@ class User(TimestampMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     public_id = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    username = db.Column(db.String(80), unique=True, nullable=True, index=True)
     name = db.Column(db.String(120), nullable=False)
-    phone = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    phone = db.Column(db.String(40), unique=True, nullable=True, index=True)
     email = db.Column(db.String(120), unique=True, nullable=True)
 
     # Only a hash is ever stored. There is deliberately no plaintext/legacy
@@ -79,6 +80,7 @@ class User(TimestampMixin, db.Model):
         """Safe to send to the client -- never includes password_hash."""
         return {
             "id": self.public_id,
+            "username": self.username,
             "name": self.name,
             "role": self.role.value,
             "status": self.status.value,

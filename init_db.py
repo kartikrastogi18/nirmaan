@@ -17,10 +17,11 @@ with app.app_context():
         print(f"Auto-activated {len(pending_users)} pending user accounts.")
 
     # 2. Seed default Boss account if none exists
-    boss = User.query.filter_by(phone="9999999999").first()
+    boss = User.query.filter((User.phone == "9999999999") | (User.username == "boss")).first()
     if not boss:
         boss = User(
             public_id=generate_public_id(UserRole.BOSS),
+            username="boss",
             name="Director / Boss",
             phone="9999999999",
             role=UserRole.BOSS,
@@ -29,8 +30,9 @@ with app.app_context():
         boss.set_password("123456")
         db.session.add(boss)
         db.session.commit()
-        print("Default Boss account created: 9999999999 / 123456")
+        print("Default Boss account created: boss / 123456")
     else:
+        boss.username = "boss"
         boss.status = UserStatus.ACTIVE
         db.session.commit()
 
@@ -54,14 +56,16 @@ with app.app_context():
         print(f"Demo project created: {proj.name} (Site {proj.site_code})")
 
         # Grant access to kartik accounts
-        for u in User.query.filter(User.phone.in_(["0000000000", "1234567891"])).all():
+        for u in User.query.filter(User.phone.in_(["0000000000", "1234567891", "1234567899", "1234567890"])).all():
             access = ProjectAccess(user_id=u.id, project_id=proj.id, granted_by_id=boss.id)
             db.session.add(access)
         db.session.commit()
         print("Assigned users to demo project.")
 
     print("\nReady! Available login accounts:")
-    print(" - Boss: 9999999999 / 123456")
-    print(" - Project Manager (Kartik): 0000000000 / 123456")
-    print(" - Contractor (Kartik): 1234567891 / 123456")
+    print(" - Boss: username 'boss' / password '123456'")
+    print(" - Project Manager: username 'kartik_pm' / password '123456'")
+    print(" - Contractor: username 'kartik_contractor' / password '123456'")
+    print(" - Architect: username 'kartik_arch' / password '123456'")
+    print(" - Client: username 'kartik_client' / password '123456'")
 

@@ -15,6 +15,7 @@ const state = {
   currentProject: null,
   tasks: [],
   team: [],
+  allUsers: [],
   pendingUsers: [],
   messages: [],
   progressUpdates: [],
@@ -45,7 +46,7 @@ function formatMoney(value) {
 
 function roleLabel(role) {
   return {
-    boss: "Boss / Admin",
+    boss: "Boss / Director",
     project_manager: "Project Manager",
     architect: "Architect",
     contractor: "Contractor",
@@ -72,7 +73,7 @@ function renderAuthScreen() {
       ]),
       el("div", { class: "instant-active-banner" }, [
         el("span", { class: "banner-icon" }, ["✓"]),
-        el("span", {}, ["Open Access: Boss approval requirement is currently waived. Accounts activate immediately."]),
+        el("span", {}, ["Clean Official Suite: Login with your assigned username and password."]),
       ]),
       el("div", { class: "auth-tabs" }, [
         el(
@@ -106,11 +107,11 @@ function renderAuthScreen() {
 }
 
 function renderLoginForm() {
-  const phoneInput = el("input", {
-    type: "tel",
-    placeholder: "e.g. 9999999999 or 0000000000",
-    autocomplete: "tel",
-    id: "login-phone-input",
+  const usernameInput = el("input", {
+    type: "text",
+    placeholder: "Username (e.g. boss, kartik_pm, etc.)",
+    autocomplete: "username",
+    id: "login-username-input",
   });
   const passwordInput = el("input", {
     type: "password",
@@ -121,21 +122,21 @@ function renderLoginForm() {
 
   const submit = async (e) => {
     e.preventDefault();
-    const phone = phoneInput.value.trim();
+    const username = usernameInput.value.trim();
     const password = passwordInput.value;
-    if (!phone || !password) {
-      showToast("Please enter both phone number and password.", "error");
+    if (!username || !password) {
+      showToast("Please enter both username and password.", "error");
       return;
     }
     try {
       const data = await apiRequest("/auth/login", {
         method: "POST",
         auth: false,
-        body: { phone, password },
+        body: { username, password },
       });
       setTokens(data);
       state.user = data.user;
-      showToast(`Welcome back, ${data.user.name}.`, "success");
+      showToast(`Welcome back, ${data.user.name} (@${data.user.username || data.user.name}).`, "success");
       await loadProjects();
       if (state.projects.length) await selectProject(state.projects[0].id);
       else render();
@@ -147,29 +148,30 @@ function renderLoginForm() {
     }
   };
 
-  const fillDemo = (phone, pass) => {
-    phoneInput.value = phone;
+  const fillDemo = (user, pass) => {
+    usernameInput.value = user;
     passwordInput.value = pass;
-    phoneInput.focus();
+    usernameInput.focus();
   };
 
   return el("form", { class: "auth-form", onsubmit: submit }, [
-    el("label", {}, ["Phone Number", phoneInput]),
+    el("label", {}, ["Username", usernameInput]),
     el("label", {}, ["Password", passwordInput]),
     el("button", { class: "btn btn-primary", type: "submit", id: "login-submit-btn" }, ["Log in to Nirmaan"]),
     el("div", { class: "demo-section" }, [
-      el("p", { class: "demo-heading" }, ["Quick Test Logins (Click to autofill):"]),
+      el("p", { class: "demo-heading" }, ["Quick Test Accounts (Click to autofill):"]),
       el("div", { class: "demo-pills" }, [
         el(
           "button",
           {
             type: "button",
             class: "demo-pill",
-            onclick: () => fillDemo("9999999999", "123456"),
+            id: "pill-boss",
+            onclick: () => fillDemo("boss", "123456"),
           },
           [
             el("span", { class: "demo-pill-title" }, ["👑 Boss / Director"]),
-            el("span", { class: "demo-pill-sub" }, ["9999999999 · 123456"]),
+            el("span", { class: "demo-pill-sub" }, ["boss · 123456"]),
           ]
         ),
         el(
@@ -177,11 +179,12 @@ function renderLoginForm() {
           {
             type: "button",
             class: "demo-pill",
-            onclick: () => fillDemo("0000000000", "123456"),
+            id: "pill-pm",
+            onclick: () => fillDemo("kartik_pm", "123456"),
           },
           [
             el("span", { class: "demo-pill-title" }, ["👷 Kartik (Project Manager)"]),
-            el("span", { class: "demo-pill-sub" }, ["0000000000 · 123456"]),
+            el("span", { class: "demo-pill-sub" }, ["kartik_pm · 123456"]),
           ]
         ),
         el(
@@ -189,11 +192,38 @@ function renderLoginForm() {
           {
             type: "button",
             class: "demo-pill",
-            onclick: () => fillDemo("1234567891", "123456"),
+            id: "pill-contractor",
+            onclick: () => fillDemo("kartik_contractor", "123456"),
           },
           [
             el("span", { class: "demo-pill-title" }, ["🏗️ Kartik (Contractor)"]),
-            el("span", { class: "demo-pill-sub" }, ["1234567891 · 123456"]),
+            el("span", { class: "demo-pill-sub" }, ["kartik_contractor · 123456"]),
+          ]
+        ),
+        el(
+          "button",
+          {
+            type: "button",
+            class: "demo-pill",
+            id: "pill-architect",
+            onclick: () => fillDemo("kartik_arch", "123456"),
+          },
+          [
+            el("span", { class: "demo-pill-title" }, ["📐 Kartik (Architect)"]),
+            el("span", { class: "demo-pill-sub" }, ["kartik_arch · 123456"]),
+          ]
+        ),
+        el(
+          "button",
+          {
+            type: "button",
+            class: "demo-pill",
+            id: "pill-client",
+            onclick: () => fillDemo("kartik_client", "123456"),
+          },
+          [
+            el("span", { class: "demo-pill-title" }, ["🤝 Kartik (Client)"]),
+            el("span", { class: "demo-pill-sub" }, ["kartik_client · 123456"]),
           ]
         ),
       ]),
@@ -203,6 +233,7 @@ function renderLoginForm() {
 
 function renderRegisterForm() {
   const nameInput = el("input", { type: "text", placeholder: "e.g. Rajesh Sharma", id: "reg-name" });
+  const usernameInput = el("input", { type: "text", placeholder: "e.g. rajesh_pm (normal string)", id: "reg-username" });
   const phoneInput = el("input", { type: "tel", placeholder: "10-digit mobile number", id: "reg-phone" });
   const passwordInput = el("input", {
     type: "password",
@@ -210,22 +241,27 @@ function renderRegisterForm() {
     id: "reg-password",
   });
   const roleSelect = el("select", { id: "reg-role" }, [
-    el("option", { value: "boss" }, ["Boss (Executive / Admin)"]),
     el("option", { value: "project_manager" }, ["Project Manager"]),
     el("option", { value: "contractor" }, ["Contractor (Thekedar)"]),
     el("option", { value: "architect" }, ["Architect"]),
     el("option", { value: "client" }, ["Client"]),
+    el("option", { value: "boss" }, ["Boss (Executive / Admin)"]),
   ]);
 
   const submit = async (e) => {
     e.preventDefault();
     const name = nameInput.value.trim();
+    const username = usernameInput.value.trim().toLowerCase();
     const phone = phoneInput.value.trim();
     const password = passwordInput.value;
     const role = roleSelect.value;
 
     if (!name) {
       showToast("Please enter your name.", "error");
+      return;
+    }
+    if (!username || username.length < 2) {
+      showToast("Please enter a username (at least 2 characters).", "error");
       return;
     }
     if (!phone || phone.length < 8) {
@@ -241,7 +277,7 @@ function renderRegisterForm() {
       const data = await apiRequest("/auth/register", {
         method: "POST",
         auth: false,
-        body: { name, phone, password, role },
+        body: { name, username, phone, password, role },
       });
       // If tokens are returned, instantly log the user in
       if (data.access_token && data.user) {
@@ -266,11 +302,12 @@ function renderRegisterForm() {
 
   return el("form", { class: "auth-form", onsubmit: submit }, [
     el("label", {}, ["Full Name", nameInput]),
+    el("label", {}, ["Username", usernameInput]),
     el("label", {}, ["Phone Number", phoneInput]),
     el("label", {}, ["Password", passwordInput]),
     el("label", {}, ["Role / Responsibility", roleSelect]),
     el("button", { class: "btn btn-primary", type: "submit", id: "register-submit-btn" }, ["Register & Activate Now"]),
-    el("p", { class: "hint" }, ["All roles activate immediately without requiring boss approval."]),
+    el("p", { class: "hint" }, ["All accounts activate immediately."]),
   ]);
 }
 
@@ -315,18 +352,25 @@ function renderShell() {
     el("header", { class: "topbar" }, [
       el("div", { class: "brand brand-compact" }, [
         el("div", { class: "brand-mark" }, ["N"]),
-        el("p", { class: "brand-name" }, ["Nirmaan"]),
+        el("div", {}, [
+          el("p", { class: "brand-name" }, ["Nirmaan"]),
+        ]),
       ]),
       el("div", { class: "topbar-user" }, [
         renderSyncStatus(),
         el("button", { class: "btn btn-ghost install-app-btn", type: "button", onclick: installNirmaan, title: "Install Nirmaan on this device" }, ["Install"]),
         renderNotificationButton(),
-        el("span", { class: "user-name" }, [state.user.name]),
-        el("span", { class: "badge role-badge" }, [roleLabel(state.user.role)]),
+        el("div", { class: "user-pill" }, [
+          el("span", { class: "user-name" }, [state.user.name]),
+          state.user.username ? el("span", { class: "user-username-tag" }, [`@${state.user.username}`]) : null,
+          el("span", { class: `badge role-badge role-badge-${state.user.role}` }, [roleLabel(state.user.role)]),
+        ]),
         el(
           "button",
           {
-            class: "btn btn-ghost",
+            class: "btn btn-ghost logout-btn",
+            id: "logout-btn",
+            title: "Log out of Nirmaan",
             onclick: () => {
               clearTokens();
               stopAutoSync();
@@ -334,6 +378,7 @@ function renderShell() {
               state.projects = [];
               state.currentProject = null;
               render();
+              showToast("You have been logged out successfully.", "info");
             },
           },
           ["Log out"]
@@ -351,8 +396,10 @@ function renderShell() {
 
 function renderSidebar() {
   const restricted = !isBoss();
-  const children = [el("h2", { class: "sidebar-title" }, [restricted ? "Assigned sites" : "Projects"])];
-  if (restricted) children.push(el("p", { class: "hint assigned-sites-note" }, ["Only sites explicitly assigned to your account are available."]));
+  const children = [el("h2", { class: "sidebar-title" }, [restricted ? "Your Assigned Sites" : "All Project Sites"])];
+  if (restricted) {
+    children.push(el("p", { class: "hint assigned-sites-note" }, ["Only sites explicitly assigned to your username by the Boss are visible."]));
+  }
 
   children.push(
     el(
@@ -364,7 +411,7 @@ function renderSidebar() {
         if (!singleAssignedSite) attrs.onclick = () => selectProject(p.id);
         if (singleAssignedSite) attrs.disabled = true;
         return el("button", attrs, [
-          el("span", { class: "site-tag" }, [singleAssignedSite ? `Your site · ${p.siteCode}` : `Site ${p.siteCode}`]),
+          el("span", { class: "site-tag" }, [singleAssignedSite ? `Your Assigned Site · ${p.siteCode}` : `Site ${p.siteCode}`]),
           el("span", { class: "project-name" }, [p.name]),
           el("span", { class: `status-pill status-${p.status}` }, [p.status.replace("_", " ")]),
         ]);
@@ -373,10 +420,33 @@ function renderSidebar() {
   );
 
   if (state.projects.length === 0) {
-    children.push(el("p", { class: "hint" }, ["No projects yet."]));
+    children.push(
+      el("div", { class: "no-sites-card" }, [
+        el("strong", {}, ["No Assigned Sites"]),
+        el("p", { class: "hint" }, [
+          restricted
+            ? `Your username (@${state.user.username || state.user.name}) has not been assigned to any project sites yet. Please ask the Boss / Director to grant site access.`
+            : "No project sites created yet. Use the form below to add your first site."
+        ]),
+      ])
+    );
   }
 
   if (isBoss()) {
+    children.push(
+      el("div", { class: "boss-sidebar-actions" }, [
+        el(
+          "button",
+          {
+            class: "btn btn-primary btn-small provision-btn-sidebar",
+            type: "button",
+            id: "sidebar-provision-btn",
+            onclick: openBossUserProvisionDialog,
+          },
+          ["+ Provision New User"]
+        ),
+      ])
+    );
     children.push(renderCreateProjectForm());
     children.push(renderPendingApprovals());
   }
@@ -385,9 +455,9 @@ function renderSidebar() {
 }
 
 function renderCreateProjectForm() {
-  const codeInput = el("input", { type: "text", placeholder: "Site code (e.g. A)", maxlength: "10" });
-  const nameInput = el("input", { type: "text", placeholder: "Project name" });
-  const budgetInput = el("input", { type: "number", placeholder: "Budget (INR)" });
+  const codeInput = el("input", { type: "text", placeholder: "Site code (e.g. GV-02)", maxlength: "10", id: "new-site-code" });
+  const nameInput = el("input", { type: "text", placeholder: "Project name", id: "new-site-name" });
+  const budgetInput = el("input", { type: "number", placeholder: "Budget (INR)", id: "new-site-budget" });
 
   const submit = async (e) => {
     e.preventDefault();
@@ -400,7 +470,7 @@ function renderCreateProjectForm() {
           budget: Number(budgetInput.value) || 0,
         },
       });
-      showToast(`${data.project.name} created.`, "success");
+      showToast(`Site ${data.project.siteCode} (${data.project.name}) created successfully.`, "success");
       codeInput.value = "";
       nameInput.value = "";
       budgetInput.value = "";
@@ -412,11 +482,11 @@ function renderCreateProjectForm() {
   };
 
   return el("form", { class: "inline-form", onsubmit: submit }, [
-    el("h3", {}, ["New project"]),
+    el("h3", {}, ["Add Project Site (Boss Exclusive)"]),
     codeInput,
     nameInput,
     budgetInput,
-    el("button", { class: "btn btn-primary btn-small", type: "submit" }, ["Create"]),
+    el("button", { class: "btn btn-primary btn-small", type: "submit", id: "create-site-submit-btn" }, ["Create Site"]),
   ]);
 }
 
@@ -439,7 +509,7 @@ function renderPendingApprovals() {
     ]),
   ]);
 
-  if (state.pendingUsers.length === 0) {
+  if (!state.pendingUsers || state.pendingUsers.length === 0) {
     wrap.appendChild(el("p", { class: "hint" }, ["Nobody waiting."]));
     return wrap;
   }
@@ -474,15 +544,390 @@ function renderPendingApprovals() {
   return wrap;
 }
 
-function renderEmptyState() {
-  return el("div", { class: "empty-state" }, [
-    el("p", {}, ["Select a project from the sidebar to see its team and tasks."]),
+function openBossUserProvisionDialog() {
+  const usernameInput = el("input", {
+    type: "text",
+    placeholder: "e.g. vikram_contractor (normal string)",
+    id: "prov-username",
+    required: true,
+  });
+  const nameInput = el("input", {
+    type: "text",
+    placeholder: "e.g. Vikram Sharma",
+    id: "prov-name",
+    required: true,
+  });
+  const passwordInput = el("input", {
+    type: "password",
+    placeholder: "Password (min 6 chars)",
+    id: "prov-password",
+    value: "123456",
+    required: true,
+  });
+  const roleSelect = el("select", { id: "prov-role" }, [
+    el("option", { value: "project_manager" }, ["Project Manager"]),
+    el("option", { value: "contractor" }, ["Contractor (Thekedar)"]),
+    el("option", { value: "architect" }, ["Architect"]),
+    el("option", { value: "client" }, ["Client"]),
+    el("option", { value: "boss" }, ["Boss (Executive / Director)"]),
+  ]);
+  const siteOptions = [
+    el("option", { value: "" }, ["-- None (No site assigned yet) --"]),
+    ...state.projects.map((p) =>
+      el("option", { value: String(p.id) }, [`Site ${p.siteCode} · ${p.name}`])
+    ),
+  ];
+  const siteSelect = el("select", { id: "prov-site" }, siteOptions);
+  if (state.currentProject) {
+    siteSelect.value = String(state.currentProject.id);
+  }
+
+  const submit = async (e) => {
+    e.preventDefault();
+    const username = usernameInput.value.trim().toLowerCase();
+    const name = nameInput.value.trim() || username;
+    const password = passwordInput.value;
+    const role = roleSelect.value;
+    const projectId = siteSelect.value ? Number(siteSelect.value) : null;
+
+    if (!username || username.length < 2) {
+      showToast("Username must be at least 2 characters.", "error");
+      return;
+    }
+    if (!password || password.length < 6) {
+      showToast("Password must be at least 6 characters.", "error");
+      return;
+    }
+
+    try {
+      const data = await apiRequest("/auth/users", {
+        method: "POST",
+        body: { username, name, password, role, projectId },
+      });
+      showToast(`User '${data.user.username}' provisioned and assigned successfully!`, "success");
+      document.querySelector(".dialog-backdrop")?.remove();
+      await loadAllUsers();
+      if (state.currentProject) await loadTeam();
+      render();
+    } catch (_err) {
+      /* apiRequest displays server toast */
+    }
+  };
+
+  const form = el("form", { class: "auth-form", onsubmit: submit }, [
+    el("label", {}, ["Username (Normal String)", usernameInput]),
+    el("label", {}, ["Full Name", nameInput]),
+    el("label", {}, ["Role / Responsibility", roleSelect]),
+    el("label", {}, ["Password", passwordInput]),
+    el("label", {}, ["Assign Project Site", siteSelect]),
+    el("p", { class: "hint" }, [
+      "The newly created user will only have access to the site selected above. Their UI and tools will be customized strictly for their role.",
+    ]),
+    el("div", { class: "dialog-actions" }, [
+      el(
+        "button",
+        {
+          class: "btn btn-ghost",
+          type: "button",
+          onclick: () => document.querySelector(".dialog-backdrop")?.remove(),
+        },
+        ["Cancel"]
+      ),
+      el("button", { class: "btn btn-primary", type: "submit", id: "prov-submit-btn" }, [
+        "Provision User & Grant Site Access",
+      ]),
+    ]),
+  ]);
+
+  openDialog("👑 Provision New User & Assign Site", form);
+}
+
+function renderProvisionedUsersSection() {
+  const users = state.allUsers || [];
+  return el("section", { class: "panel boss-provision-panel" }, [
+    el("div", { class: "panel-header" }, [
+      el("div", {}, [
+        el("h2", {}, ["Provisioned Users & Site Access"]),
+        el("p", { class: "hint" }, ["Every user's assigned username, role, and authorized site(s)."]),
+      ]),
+      el("button", { class: "btn btn-primary btn-small", id: "boss-section-provision-btn", onclick: openBossUserProvisionDialog }, ["+ Provision New User"]),
+    ]),
+    users.length
+      ? el("div", { class: "provisioned-users-grid" }, users.map((u) => {
+          const assigned = (u.assignedProjects || []).map((p) => `Site ${p.siteCode}`).join(", ") || (u.role === "boss" ? "All Sites (Director)" : "No Site Assigned");
+          return el("div", { class: "user-card" }, [
+            el("div", { class: "user-card-head" }, [
+              el("div", {}, [
+                el("strong", { class: "user-card-name" }, [u.name]),
+                el("p", { class: "user-card-username" }, [`@${u.username || u.id}`]),
+              ]),
+              el("span", { class: `badge role-badge role-badge-${u.role}` }, [roleLabel(u.role)]),
+            ]),
+            el("div", { class: "user-card-site" }, [
+              el("span", { class: "hint" }, ["Assigned Site: "]),
+              el("strong", { class: "site-code-badge" }, [assigned]),
+            ]),
+          ]);
+        }))
+      : el("p", { class: "hint" }, ["No provisioned users loaded yet."]),
   ]);
 }
 
-function renderProjectDetail() {
-  const p = state.currentProject;
-  return el("div", { class: "project-detail" }, [
+function renderProgressFeatureStrip() {
+  if (!canPostProgress()) return null;
+  return el(
+    "div",
+    {
+      class: "progress-feature-strip",
+      onclick: openProgressComposer,
+      role: "button",
+      tabindex: "0",
+      onkeydown: (e) => {
+        if (e.key === "Enter" || e.key === " ") openProgressComposer();
+      },
+    },
+    [
+      el("span", {}, ["📸 Live Camera"]),
+      el("span", {}, ["🖼 Upload Photos"]),
+      el("span", {}, ["🎙 Voice Note"]),
+      el("span", {}, ["🗣 Speech-to-Text"]),
+      el("span", {}, ["📍 GPS Geotag"]),
+    ]
+  );
+}
+
+function renderDrawingsUploadAndList() {
+  const fileInput = el("input", {
+    type: "file",
+    accept: ".pdf,.png,.jpg,.jpeg,.webp,.dwg,.cad,.doc,.docx",
+    id: "arch-file-input",
+  });
+  const uploadBtn = el("button", { class: "btn btn-primary btn-small", type: "submit" }, ["Upload Blueprint"]);
+
+  const upload = async (e) => {
+    e.preventDefault();
+    if (!fileInput.files[0]) return showToast("Select a drawing or blueprint file first.", "error");
+    const fd = new FormData();
+    fd.append("file", fileInput.files[0]);
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = "Uploading…";
+    try {
+      await apiFormRequest(`/projects/${state.currentProject.id}/files`, fd);
+      fileInput.value = "";
+      await loadFiles();
+      render();
+      showToast("Drawing uploaded successfully.", "success");
+    } catch (_err) {
+    } finally {
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = "Upload Blueprint";
+    }
+  };
+
+  const fileRows = state.files.length
+    ? state.files.map((f) => {
+        const isDrawing = /\.(pdf|png|jpe?g|dwg|cad)$/i.test(f.name);
+        return el("div", { class: `file-row ${isDrawing ? "drawing-row" : ""}` }, [
+          el("div", { class: "file-info" }, [
+            el("span", { class: "file-icon" }, [isDrawing ? "📐" : "📄"]),
+            el("div", {}, [
+              el("strong", { class: "file-name" }, [f.name]),
+              el("p", { class: "hint" }, [
+                `${Math.max(1, Math.round(f.sizeBytes / 1024))} KB · Uploaded by ${f.uploadedBy ? f.uploadedBy.name : "Team"}`,
+              ]),
+            ]),
+          ]),
+          el(
+            "button",
+            {
+              class: "btn btn-small",
+              onclick: async () => {
+                try {
+                  const blob = await apiBlob(`/api/projects/${state.currentProject.id}/files/${f.id}`);
+                  const u = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = u;
+                  a.download = f.name;
+                  a.click();
+                  setTimeout(() => URL.revokeObjectURL(u), 1000);
+                } catch (_e) {
+                  showToast("Could not download file.", "error");
+                }
+              },
+            },
+            ["Download"]
+          ),
+        ]);
+      })
+    : [el("p", { class: "hint" }, ["No blueprints or drawings uploaded yet for this site."])];
+
+  return el("div", { class: "drawings-vault" }, [
+    el("form", { class: "file-upload inline-form-row", onsubmit: upload }, [fileInput, uploadBtn]),
+    el("div", { class: "file-list" }, fileRows),
+  ]);
+}
+
+function renderBossDashboard(p) {
+  return el("div", { class: "project-detail boss-view" }, [
+    el("div", { class: "project-header" }, [
+      el("div", {}, [
+        el("p", { class: "site-tag" }, [`Site ${p.siteCode}`]),
+        el("h1", {}, [p.name]),
+        el("p", { class: "hint" }, [p.location || "No location set"]),
+      ]),
+      el("div", { class: "header-actions" }, [
+        el("span", { class: `status-pill status-${p.status}` }, [p.status.replace("_", " ")]),
+        el("button", { class: "btn btn-primary btn-small", id: "boss-header-provision-btn", onclick: openBossUserProvisionDialog }, ["+ Provision User & Assign Site"]),
+        el("button", { class: "btn btn-small", onclick: openFinanceEditor }, ["Edit Finances"]),
+        el("button", { class: "btn btn-small", onclick: exportCurrentProject }, ["Export Backup"]),
+      ]),
+    ]),
+    el("div", { class: "role-home-note role-note-boss" }, [
+      el("span", { class: "role-note-icon" }, ["👑"]),
+      el("span", {}, ["Director / Boss Workspace · Total executive authority, user provisioning, financials, and site command."]),
+    ]),
+
+    el("section", { class: "overview-grid overview-grid-4", "aria-label": "Project Financial Overview" }, [
+      el("div", { class: "overview-card" }, [
+        el("span", { class: "hint" }, ["Overall Progress"]),
+        el("strong", {}, [`${Math.round(p.progressPercent || 0)}%`]),
+      ]),
+      el("div", { class: "overview-card" }, [
+        el("span", { class: "hint" }, ["Total Budget"]),
+        el("strong", { class: "text-green" }, [formatMoney(p.budget || 0)]),
+      ]),
+      el("div", { class: "overview-card" }, [
+        el("span", { class: "hint" }, ["Amount Spent"]),
+        el("strong", { class: "text-amber" }, [formatMoney(p.spent || 0)]),
+      ]),
+      el("div", { class: "overview-card" }, [
+        el("span", { class: "hint" }, ["Remaining Funds"]),
+        el("strong", { class: "text-blue" }, [formatMoney(Math.max(0, (p.budget || 0) - (p.spent || 0)))]),
+      ]),
+    ]),
+
+    renderProvisionedUsersSection(),
+
+    el("section", { class: "panel" }, [
+      el("div", { class: "panel-header" }, [
+        el("div", {}, [
+          el("h2", {}, ["Tasks & Project Milestones"]),
+          el("p", { class: "hint" }, ["Track deadlines, contractor assignments, and overall execution status."]),
+        ]),
+        renderCreateTaskButton(),
+      ]),
+      renderTaskList(),
+    ]),
+
+    el("section", { class: "panel progress-panel" }, [
+      el("div", { class: "panel-header" }, [
+        el("div", {}, [
+          el("h2", {}, ["Site Updates & Field Logs"]),
+          el("p", { class: "hint" }, ["Photos, voice notes, and daily work submitted from the construction site."]),
+        ]),
+        el("button", { class: "btn btn-small btn-primary", onclick: openProgressComposer }, ["+ Post Update"]),
+      ]),
+      renderProgressFeatureStrip(),
+      renderProgressUpdates(),
+    ]),
+
+    el("section", { class: "panel" }, [
+      el("div", { class: "panel-header" }, [
+        el("h2", {}, ["Site Team Roster"]),
+        renderGrantAccessForm(),
+      ]),
+      renderTeamList(),
+    ]),
+
+    renderPersonalTools(),
+
+    el("section", { class: "panel" }, [
+      el("div", { class: "panel-header" }, [el("h2", {}, ["Executive Feedback & Directives"])]),
+      renderFeedbackPanel(),
+    ]),
+  ]);
+}
+
+function renderPMDashboard(p) {
+  const pendingCount = state.tasks.filter((t) => t.status !== "done").length;
+  const doneCount = state.tasks.filter((t) => t.status === "done").length;
+  return el("div", { class: "project-detail pm-view" }, [
+    el("div", { class: "project-header" }, [
+      el("div", {}, [
+        el("p", { class: "site-tag" }, [`Site ${p.siteCode}`]),
+        el("h1", {}, [p.name]),
+        el("p", { class: "hint" }, [p.location || "No location set"]),
+      ]),
+      el("div", { class: "header-actions" }, [
+        el("span", { class: `status-pill status-${p.status}` }, [p.status.replace("_", " ")]),
+        el("button", { class: "btn btn-primary btn-small", onclick: () => openTaskForm() }, ["+ New Task"]),
+      ]),
+    ]),
+    el("div", { class: "role-home-note role-note-pm" }, [
+      el("span", { class: "role-note-icon" }, ["👷"]),
+      el("span", {}, ["Project Manager Workspace · Work scheduling, task assignments, team coordination & quality control."]),
+    ]),
+
+    el("section", { class: "overview-grid", "aria-label": "Operational metrics" }, [
+      el("div", { class: "overview-card" }, [
+        el("span", { class: "hint" }, ["Site Progress"]),
+        el("strong", {}, [`${Math.round(p.progressPercent || 0)}%`]),
+      ]),
+      el("div", { class: "overview-card" }, [
+        el("span", { class: "hint" }, ["Pending Tasks"]),
+        el("strong", { class: "text-amber" }, [String(pendingCount)]),
+      ]),
+      el("div", { class: "overview-card" }, [
+        el("span", { class: "hint" }, ["Completed Tasks"]),
+        el("strong", { class: "text-green" }, [String(doneCount)]),
+      ]),
+    ]),
+
+    el("section", { class: "panel highlight-panel" }, [
+      el("div", { class: "panel-header" }, [
+        el("div", {}, [
+          el("h2", {}, ["Tasks, Deadlines & Assignees"]),
+          el("p", { class: "hint" }, ["Assign tasks to contractors and track completion."]),
+        ]),
+        renderCreateTaskButton(),
+      ]),
+      renderTaskList(),
+    ]),
+
+    el("section", { class: "panel" }, [
+      el("div", { class: "panel-header" }, [
+        el("div", {}, [
+          el("h2", {}, ["Site Team Members"]),
+          el("p", { class: "hint" }, ["Team members with access to this site."]),
+        ]),
+        renderGrantAccessForm(),
+      ]),
+      renderTeamList(),
+    ]),
+
+    el("section", { class: "panel progress-panel" }, [
+      el("div", { class: "panel-header" }, [
+        el("div", {}, [
+          el("h2", {}, ["Site Progress Updates"]),
+          el("p", { class: "hint" }, ["Field reports, contractor photos & audio notes."]),
+        ]),
+        el("button", { class: "btn btn-small btn-primary", onclick: openProgressComposer }, ["+ Post Update"]),
+      ]),
+      renderProgressFeatureStrip(),
+      renderProgressUpdates(),
+    ]),
+
+    renderPersonalTools(),
+
+    el("section", { class: "panel" }, [
+      el("div", { class: "panel-header" }, [el("h2", {}, ["Site Communication & Coordination"])]),
+      renderFeedbackPanel(),
+    ]),
+  ]);
+}
+
+function renderContractorDashboard(p) {
+  return el("div", { class: "project-detail contractor-view" }, [
     el("div", { class: "project-header" }, [
       el("div", {}, [
         el("p", { class: "site-tag" }, [`Site ${p.siteCode}`]),
@@ -491,45 +936,188 @@ function renderProjectDetail() {
       ]),
       el("span", { class: `status-pill status-${p.status}` }, [p.status.replace("_", " ")]),
     ]),
-    el("div", { class: "role-home-note" }, [{boss:"Executive workspace · finances, team and all project controls",project_manager:"Project Manager workspace · tasks, team and site coordination",contractor:"Field workspace · today's work, camera, voice and site updates",architect:"Architect workspace · assigned work, project files and site updates",client:"Client workspace · project progress, photos, feedback and your own photo updates"}[state.user.role]]),
-
-    el("section", { class: "overview-grid", "aria-label": "Project overview" }, [
-      el("div", { class: "overview-card" }, [el("span", { class: "hint" }, ["Overall progress · from tasks"]), el("strong", {}, [`${Math.round(p.progressPercent || 0)}%`])]),
-      isBoss() ? el("div", { class: "overview-card" }, [el("span", { class: "hint" }, ["Budget"]), el("strong", {}, [formatMoney(p.budget || 0)])]) : null,
-      isBoss() ? el("div", { class: "overview-card" }, [el("span", { class: "hint" }, ["Spent"]), el("strong", {}, [formatMoney(p.spent || 0)]), el("button", { class: "btn btn-small", onclick: openFinanceEditor }, ["Edit finances"])]) : null,
+    el("div", { class: "role-home-note role-note-contractor" }, [
+      el("span", { class: "role-note-icon" }, ["🏗️"]),
+      el("span", {}, ["Contractor (Thekedar) Field Operations · Record daily work, photos, camera, voice notes & task status."]),
     ]),
 
-    isManager() || state.user.role === "architect" ? el("section", { class: "panel" }, [
-      el("div", { class: "panel-header" }, [el("h2", {}, ["Team"]), isManager() ? renderGrantAccessForm() : null]),
-      renderTeamList(),
-    ]) : null,
+    el("div", { class: "contractor-hero-card" }, [
+      el("div", { class: "contractor-hero-info" }, [
+        el("h2", {}, ["Daily Site Work & Reporting"]),
+        el("p", {}, ["Take live photos, record voice notes in Hindi/English, and submit today's work report for the Boss & Project Manager."]),
+      ]),
+      el(
+        "button",
+        {
+          class: "btn btn-primary btn-large contractor-report-btn",
+          type: "button",
+          onclick: openProgressComposer,
+        },
+        ["📸 Submit Daily Work Report (Photos / Camera / Voice)"]
+      ),
+    ]),
 
-    el("section", { class: "panel" }, [
+    renderProgressFeatureStrip(),
+
+    el("section", { class: "panel highlight-panel" }, [
       el("div", { class: "panel-header" }, [
-        el("h2", {}, [state.user.role === "contractor" ? "My day-wise work" : "Tasks & deadlines"]),
-        isManager() ? renderCreateTaskButton() : null,
+        el("div", {}, [
+          el("h2", {}, ["My Assigned Work & Day-wise Tasks"]),
+          el("p", { class: "hint" }, ["Update status (Pending / In Progress / Done) as work progresses on site."]),
+        ]),
       ]),
       renderTaskList(),
     ]),
 
     el("section", { class: "panel progress-panel" }, [
       el("div", { class: "panel-header" }, [
-        el("div", {}, [el("h2", {}, ["Site updates"]), el("p", { class: "hint" }, ["Photos, voice notes, and daily progress from site."])]),
-        canPostProgress() ? el("button", { class: "btn btn-small btn-primary", onclick: openProgressComposer }, ["+ Post update"]) : null,
+        el("div", {}, [
+          el("h2", {}, ["Recent Daily Work Reports"]),
+          el("p", { class: "hint" }, ["Your submitted site photos, audio recordings, and work logs."]),
+        ]),
+        el("button", { class: "btn btn-small btn-primary", onclick: openProgressComposer }, ["+ Add Daily Log"]),
       ]),
-      canPostProgress() ? el("div", { class: "progress-feature-strip", onclick: openProgressComposer, role: "button", tabindex: "0", onkeydown: e => { if (e.key === "Enter" || e.key === " ") openProgressComposer(); } }, [
-        el("span", {}, ["🖼 Upload photos"]), el("span", {}, ["📸 Live camera"]), el("span", {}, ["🎙 Voice note"]), el("span", {}, ["🗣 Speech-to-text"])
-      ]) : null,
       renderProgressUpdates(),
     ]),
 
     el("section", { class: "panel" }, [
-      el("div", { class: "panel-header" }, [el("h2", {}, ["Feedback"])]),
+      el("div", { class: "panel-header" }, [
+        el("h2", {}, ["Field Queries / Note to Project Manager"]),
+      ]),
       renderFeedbackPanel(),
     ]),
-
-    state.user.role === "client" ? null : renderPersonalTools(),
   ]);
+}
+
+function renderArchitectDashboard(p) {
+  return el("div", { class: "project-detail architect-view" }, [
+    el("div", { class: "project-header" }, [
+      el("div", {}, [
+        el("p", { class: "site-tag" }, [`Site ${p.siteCode}`]),
+        el("h1", {}, [p.name]),
+        el("p", { class: "hint" }, [p.location || "No location set"]),
+      ]),
+      el("span", { class: `status-pill status-${p.status}` }, [p.status.replace("_", " ")]),
+    ]),
+    el("div", { class: "role-home-note role-note-architect" }, [
+      el("span", { class: "role-note-icon" }, ["📐"]),
+      el("span", {}, ["Architectural Workspace · Blueprints, CAD/PDF drawings repository, design tasks & visual site inspection."]),
+    ]),
+
+    el("section", { class: "panel highlight-panel drawings-panel" }, [
+      el("div", { class: "panel-header" }, [
+        el("div", {}, [
+          el("h2", {}, ["Architectural Drawings & Blueprint Repository"]),
+          el("p", { class: "hint" }, ["Upload and manage project plans, elevation drawings, structural details (PDF, CAD, PNG, JPG)."]),
+        ]),
+      ]),
+      renderDrawingsUploadAndList(),
+    ]),
+
+    el("section", { class: "panel progress-panel" }, [
+      el("div", { class: "panel-header" }, [
+        el("div", {}, [
+          el("h2", {}, ["Visual Site Inspection Feed"]),
+          el("p", { class: "hint" }, ["Verify contractor execution against architectural drawings using site photos."]),
+        ]),
+      ]),
+      renderProgressUpdates(),
+    ]),
+
+    el("section", { class: "panel" }, [
+      el("div", { class: "panel-header" }, [
+        el("div", {}, [
+          el("h2", {}, ["Design Review Tasks & Approvals"]),
+          el("p", { class: "hint" }, ["Tasks requiring architectural review or drawing approval."]),
+        ]),
+      ]),
+      renderTaskList(),
+    ]),
+
+    el("section", { class: "panel" }, [
+      el("div", { class: "panel-header" }, [
+        el("h2", {}, ["Architectural Notes & Queries"]),
+      ]),
+      renderFeedbackPanel(),
+    ]),
+  ]);
+}
+
+function renderClientDashboard(p) {
+  const pct = Math.round(p.progressPercent || 0);
+  const fill = el("div", { class: "client-progress-fill" });
+  fill.style.width = `${Math.max(5, Math.min(100, pct))}%`;
+
+  return el("div", { class: "project-detail client-view" }, [
+    el("div", { class: "project-header" }, [
+      el("div", {}, [
+        el("p", { class: "site-tag" }, [`Site ${p.siteCode}`]),
+        el("h1", {}, [p.name]),
+        el("p", { class: "hint" }, [p.location || "No location set"]),
+      ]),
+      el("span", { class: `status-pill status-${p.status}` }, [p.status.replace("_", " ")]),
+    ]),
+    el("div", { class: "role-home-note role-note-client" }, [
+      el("span", { class: "role-note-icon" }, ["🤝"]),
+      el("span", {}, ["Client Portal · Live construction progress, high-resolution photo gallery & direct communication."]),
+    ]),
+
+    el("div", { class: "client-showcase-card" }, [
+      el("div", { class: "client-showcase-info" }, [
+        el("span", { class: "client-welcome-tag" }, ["Project Status"]),
+        el("h2", {}, [`${p.name} · Site ${p.siteCode}`]),
+        el("p", { class: "client-showcase-desc" }, [
+          p.description || "Construction is underway according to schedule. View live photos and progress below.",
+        ]),
+        el("div", { class: "client-progress-bar-wrap" }, [
+          el("div", { class: "client-progress-bar" }, [fill]),
+          el("div", { class: "client-progress-text" }, [
+            el("strong", {}, [`${pct}% Complete`]),
+            el("span", { class: "hint" }, [p.status.replace("_", " ").toUpperCase()]),
+          ]),
+        ]),
+      ]),
+    ]),
+
+    el("section", { class: "panel progress-panel" }, [
+      el("div", { class: "panel-header" }, [
+        el("div", {}, [
+          el("h2", {}, ["Site Photo Gallery & Visual Updates"]),
+          el("p", { class: "hint" }, ["Click on any photo to open full-screen high-resolution viewer."]),
+        ]),
+        canPostProgress() ? el("button", { class: "btn btn-small btn-primary", onclick: openProgressComposer }, ["+ Add Photo / Note"]) : null,
+      ]),
+      renderProgressUpdates(),
+    ]),
+
+    el("section", { class: "panel" }, [
+      el("div", { class: "panel-header" }, [
+        el("div", {}, [
+          el("h2", {}, ["Message Project Director & Site Team"]),
+          el("p", { class: "hint" }, ["Ask questions or request updates directly from your site team."]),
+        ]),
+      ]),
+      renderFeedbackPanel(),
+    ]),
+  ]);
+}
+
+function renderProjectDetail() {
+  const p = state.currentProject;
+  if (!p) return renderEmptyState();
+
+  if (state.user.role === "boss") {
+    return renderBossDashboard(p);
+  } else if (state.user.role === "project_manager") {
+    return renderPMDashboard(p);
+  } else if (state.user.role === "contractor") {
+    return renderContractorDashboard(p);
+  } else if (state.user.role === "architect") {
+    return renderArchitectDashboard(p);
+  } else if (state.user.role === "client") {
+    return renderClientDashboard(p);
+  }
+  return renderPMDashboard(p);
 }
 
 
@@ -1010,9 +1598,21 @@ async function loadProjects() {
   try {
     const data = await apiRequest("/projects");
     state.projects = data.projects;
-    if (isBoss()) await loadPendingUsers();
+    if (isBoss()) {
+      await Promise.all([loadPendingUsers(), loadAllUsers()]);
+    }
   } catch (_err) {
     /* toasted already */
+  }
+}
+
+async function loadAllUsers() {
+  if (!isBoss()) return;
+  try {
+    const data = await apiRequest("/auth/users");
+    state.allUsers = data.users || [];
+  } catch (_err) {
+    state.allUsers = [];
   }
 }
 
